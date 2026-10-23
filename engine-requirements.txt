@@ -1,0 +1,6 @@
+# Install torch and torchaudio separately for the chosen CPU/CUDA runtime.
+funasr==1.4.16
+modelscope>=1.31,<2
+soundfile>=0.13,<0.14
+imageio-ffmpeg>=0.6,<0.7
+PyAudioWPatch==0.2.12.8; sys_platform == "win32"

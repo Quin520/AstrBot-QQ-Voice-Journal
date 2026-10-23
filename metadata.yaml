@@ -1,0 +1,8 @@
+name: astrbot_plugin_voice_journal
+display_name: 群语音手记
+desc: 手动采集群语音、离线转写、试听审核说话人、独立声纹库和通话复盘。
+version: v0.1.0
+author: Quin520
+astrbot_version: ">=4.29.1,<5"
+support_platforms:
+  - aiocqhttp

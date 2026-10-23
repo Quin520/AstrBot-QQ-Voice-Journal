@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>群语音手记</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script>
+</head>
+<body>
+  <header><div><span class="eyebrow">VOICE JOURNAL</span><h1>群语音手记</h1></div><span class="badge">本机采集 · 人工确认身份</span></header>
+  <div id="notice" role="status" hidden></div>
+  <section id="login" class="card narrow" hidden>
+    <h2>打开你的手记</h2><p>使用本机一键入口，或输入管理口令。只有管理者可以采集和审核。</p>
+    <label>管理口令<input id="token" type="password" autocomplete="off"></label><button id="login-button">进入面板</button>
+  </section>
+  <main id="workspace" hidden>
+    <aside>
+      <section class="card capture-card">
+        <h2>新的一次语音</h2><p id="group-label" class="muted"></p>
+        <p class="hint">先在 QQ 发起／加入群语音，再点开始采集。当前不自动控制 QQ 通话。</p>
+        <label>QQ 使用的输出设备<select id="device"><option value="">请刷新并选择设备</option></select></label>
+        <button id="devices-button" class="secondary">刷新音频设备</button>
+        <label class="check"><input id="confirmed" type="checkbox"><span>已加入通话，参与者知悉记录。所选设备的其他声音也会被采集。</span></label>
+        <button id="start-button">开始采集</button><button id="stop-button" class="danger" hidden>停止采集并处理</button>
+        <p id="capture-state" class="muted">尚未采集</p>
+        <div class="divider"></div>
+        <label>或导入已有音频<input id="audio-file" type="file" accept=".wav,.mp3,.m4a,.flac,.ogg,.aac,.webm"></label>
+        <button id="import-button" class="secondary">导入并转写</button>
+      </section>
+      <section class="card"><div class="row"><h2>语音记录</h2><button id="refresh-button" class="small secondary">刷新</button></div><div id="sessions"></div></section>
+      <section class="card"><h2>声纹库</h2><p class="muted">仅保存审核通过的样本。撤销或删除来源记录后，该样本立即退出匹配。</p><div id="voices"></div></section>
+    </aside>
+    <article>
+      <section id="empty" class="card empty"><div class="symbol">◉</div><h2>先留下一段声音</h2><p>采集结束或完成一个分段后，试听声音分组，确认是谁在说话。</p><p class="muted">每次确认都会留下可撤销的审核记录。未确认的声音不会自动学习。</p></section>
+      <section id="record" hidden>
+        <div class="card"><div class="row"><div><span class="eyebrow">SESSION</span><h2 id="record-title"></h2></div><button id="delete-button" class="small danger secondary">删除此记录</button></div><p id="record-status"></p><div id="chunks"></div></div>
+        <section class="card"><div class="row"><div><h2>这是谁的声音？</h2><p class="muted">先试听，再认定。相似度只是候选线索，不是准确率。</p></div><button id="members-button" class="secondary small">同步群成员</button></div><datalist id="member-list"></datalist><div id="clusters"></div></section>
+        <section class="card"><div class="row"><h2>这次聊了什么</h2><button id="summary-button" class="secondary">重新生成复盘</button></div><p id="summary-state" class="muted"></p><pre id="summary"></pre></section>
+        <details class="card"><summary>查看转写原文与时间</summary><button id="export-button" class="small secondary">导出文本</button><pre id="transcript"></pre></details>
+      </section>
+    </article>
+  </main>
+  <footer>独立于聊天、好感度和自学习插件。身份审核只更新本插件声纹库。</footer>
+</body>
+</html>

@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+runtime/
+data/
+*.wav
+*.mp3
+*.db
+*.log
+*.private.json
+dist/

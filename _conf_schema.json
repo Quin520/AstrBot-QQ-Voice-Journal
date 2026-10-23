@@ -1,0 +1,18 @@
+{
+  "owner_qq": {"description": "唯一管理者 QQ", "type": "string", "default": "", "hint": "只有此账号可在私聊获取管理面板入口。群成员不能控制录音、审核或本机。"},
+  "group_id": {"description": "目标 QQ 群", "type": "string", "default": ""},
+  "platform_id": {"description": "QQ 平台实例 ID", "type": "string", "default": "", "hint": "AstrBot 消息平台中显示的实例 ID。用于只读同步目标群成员。"},
+  "provider_id": {"description": "总结模型提供商", "type": "string", "default": "", "hint": "填写 AstrBot 已配置的提供商 ID，例如 local_codex。可使用其他提供商，不依赖 Codex 桥接插件源码。"},
+  "engine_python": {"description": "独立语音环境 Python 路径", "type": "string", "default": "", "hint": "安装 engine-requirements.txt 的独立 Python，不要把 Torch 装进 AstrBot 主环境。"},
+  "engine_cache": {"description": "模型缓存目录", "type": "string", "default": "", "hint": "留空时使用本插件私有数据目录。"},
+  "engine_device": {"description": "转写设备", "type": "string", "default": "cpu", "options": ["cpu", "cuda"], "hint": "默认 CPU，最多使用下方配置的线程数。CUDA 需独立环境已安装兼容版本。"},
+  "cpu_threads": {"description": "语音处理 CPU 线程数", "type": "int", "default": 2},
+  "web_port": {"description": "本地管理面板端口", "type": "int", "default": 7844, "hint": "仅监听 127.0.0.1，面板需要管理口令。"},
+  "capture_enabled": {"description": "启用手动采集按钮", "type": "bool", "default": true, "hint": "不会自动加入 QQ 通话。先在 QQ 发起或加入语音，再在面板点击开始采集。"},
+  "checkpoint_minutes": {"description": "分段转写间隔（分钟）", "type": "int", "default": 10, "hint": "采集中每隔此时间提交一个音频分段，停止时处理剩余部分。"},
+  "maximum_minutes": {"description": "每次采集时长上限（分钟）", "type": "int", "default": 120},
+  "auto_summary": {"description": "每段转写完成后自动生成面板复盘", "type": "bool", "default": true, "hint": "未审核身份使用匿名分组；审核后复盘会标记过期，可重新生成。不会自动改好感度、人物设置或向群发消息。"},
+  "match_threshold": {"description": "声纹候选最低相似度", "type": "float", "default": 0.72, "hint": "余弦相似度不是准确率；达到阈值也只产生待审核候选。"},
+  "match_margin": {"description": "第一与第二候选的最小差值", "type": "float", "default": 0.1},
+  "summary_style": {"description": "复盘语气（可自定义）", "type": "text", "default": "用自然、简短的中文总结话题和每个人的具体参与情况，可以轻松一点；只依据发言证据，不推测人格、心理或事实。"}
+}

@@ -6,7 +6,7 @@ import sqlite3
 import time
 import uuid
 import wave
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 
 from .matching import candidates, unit_vector
@@ -51,6 +51,8 @@ class Store:
                 CREATE INDEX IF NOT EXISTS cluster_session ON clusters(session_id);
                 CREATE INDEX IF NOT EXISTS segment_session ON segments(session_id, start);
             """)
+            if "source" not in {row[1] for row in db.execute("PRAGMA table_info(chunks)")}:
+                db.execute("ALTER TABLE chunks ADD COLUMN source TEXT NOT NULL DEFAULT ''")
 
     @contextmanager
     def connect(self):
@@ -119,13 +121,15 @@ class Store:
                 (status, error[:1500], session_id),
             )
 
-    def chunk(self, session_id: str, path: Path, offset: float) -> str:
+    def chunk(
+        self, session_id: str, path: Path, offset: float, source: str = "", connection=None
+    ) -> str:
         chunk_id = uuid.uuid4().hex
         relative = str(path.resolve().relative_to(self.directory.resolve()))
-        with self.connect() as db:
+        with nullcontext(connection) if connection is not None else self.connect() as db:
             db.execute(
-                "INSERT INTO chunks(id,session_id,offset,status,audio) VALUES(?,?,?,'queued',?)",
-                (chunk_id, session_id, offset, relative),
+                "INSERT INTO chunks(id,session_id,offset,status,audio,source) VALUES(?,?,?,'queued',?,?)",
+                (chunk_id, session_id, offset, relative, source),
             )
         return chunk_id
 
@@ -261,13 +265,14 @@ class Store:
             groups = [
                 dict(row)
                 for row in db.execute(
-                    "SELECT * FROM clusters WHERE session_id=? ORDER BY rowid", (session_id,)
+                    "SELECT c.*, k.source FROM clusters c JOIN chunks k ON k.id=c.chunk_id WHERE c.session_id=? ORDER BY c.rowid",
+                    (session_id,),
                 )
             ]
             session["chunks"] = [
                 dict(row)
                 for row in db.execute(
-                    "SELECT id,offset,duration,status,error FROM chunks WHERE session_id=? ORDER BY offset",
+                    "SELECT id,offset,duration,status,error,source FROM chunks WHERE session_id=? ORDER BY offset",
                     (session_id,),
                 )
             ]
@@ -303,6 +308,8 @@ class Store:
             )
             if group["status"] == "rejected":
                 name += "（混合/不可靠分组，不归因到个人）"
+            if group["source"]:
+                name += f"（音轨：{group['source']}）"
             lines.append(
                 f"[{segment['start']:.1f}s–{segment['end']:.1f}s] {name}: {segment['text']}"
             )

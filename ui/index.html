@@ -5,7 +5,7 @@
   <title>群语音手记</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script>
 </head>
 <body>
-  <header><div><span class="eyebrow">VOICE JOURNAL</span><h1>群语音手记</h1></div><span class="badge">本机采集 · 人工确认身份</span></header>
+  <header><div><span class="eyebrow">VOICE JOURNAL</span><h1>群语音手记</h1></div><span class="badge">双端采集 · 人工确认身份</span></header>
   <div id="notice" role="status" hidden></div>
   <section id="login" class="card narrow" hidden>
     <h2>打开你的手记</h2><p>使用本机一键入口，或输入管理口令。只有管理者可以采集和审核。</p>
@@ -13,8 +13,17 @@
   </section>
   <main id="workspace" hidden>
     <aside>
+      <section class="card">
+        <h2>B 端录音接入</h2><p id="remote-state" class="muted"></p>
+        <p class="hint">A、B 先登录同一个 Tailscale 网络。B 用自己的 QQ 参加语音，机器人留在 A。</p>
+        <label>A 的 Tailscale 地址<input id="remote-address" placeholder="例如 https://100.x.x.x:7845" autocomplete="off"></label>
+        <button id="pair-button">导出 B 端连接文件</button>
+        <p class="muted">连接文件含上传口令，只交给自己的 B 电脑。在 B 采集器中导入，再选择播放设备和麦克风。</p>
+        <p><a href="https://github.com/Quin520/AstrBot-QQ-Voice-Journal/releases/latest/download/VoiceJournal-B-Windows-x64.zip" target="_blank" rel="noopener noreferrer">下载 B 端采集器</a></p>
+        <button id="revoke-button" class="secondary small">撤销旧连接文件</button>
+      </section>
       <section class="card capture-card">
-        <h2>新的一次语音</h2><p id="group-label" class="muted"></p>
+        <h2>或在 A 本机采集</h2><p id="group-label" class="muted"></p>
         <p class="hint">先在 QQ 发起／加入群语音，再点开始采集。当前不自动控制 QQ 通话。</p>
         <label>QQ 使用的输出设备<select id="device"><option value="">请刷新并选择设备</option></select></label>
         <button id="devices-button" class="secondary">刷新音频设备</button>
@@ -31,7 +40,7 @@
     <article>
       <section id="empty" class="card empty"><div class="symbol">◉</div><h2>先留下一段声音</h2><p>采集结束或完成一个分段后，试听声音分组，确认是谁在说话。</p><p class="muted">每次确认都会留下可撤销的审核记录。未确认的声音不会自动学习。</p></section>
       <section id="record" hidden>
-        <div class="card"><div class="row"><div><span class="eyebrow">SESSION</span><h2 id="record-title"></h2></div><button id="delete-button" class="small danger secondary">删除此记录</button></div><p id="record-status"></p><div id="chunks"></div></div>
+        <div class="card"><div class="row"><div><span class="eyebrow">SESSION</span><h2 id="record-title"></h2></div><button id="delete-button" class="small danger secondary">删除此记录</button></div><p id="record-status"></p><button id="end-remote-button" class="small secondary" hidden>结束 B 端接收</button><div id="chunks"></div></div>
         <section class="card"><div class="row"><div><h2>这是谁的声音？</h2><p class="muted">先试听，再认定。相似度只是候选线索，不是准确率。</p></div><button id="members-button" class="secondary small">同步群成员</button></div><datalist id="member-list"></datalist><div id="clusters"></div></section>
         <section class="card"><div class="row"><h2>这次聊了什么</h2><button id="summary-button" class="secondary">重新生成复盘</button></div><p id="summary-state" class="muted"></p><pre id="summary"></pre></section>
         <details class="card"><summary>查看转写原文与时间</summary><button id="export-button" class="small secondary">导出文本</button><pre id="transcript"></pre></details>

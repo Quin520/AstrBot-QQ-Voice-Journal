@@ -11,8 +11,9 @@ logger = logging.getLogger(__name__)
 
 
 class WebPanel:
-    def __init__(self, service, directory: Path, port: int):
+    def __init__(self, service, directory: Path, port: int, remote=None):
         self.service, self.directory, self.port = service, directory, port
+        self.remote = remote
         self.runner = None
         token_path = directory / "panel-token.txt"
         if token_path.exists():
@@ -29,6 +30,9 @@ class WebPanel:
                 web.get("/app.js", self.static),
                 web.get("/style.css", self.static),
                 web.get("/api/status", self.status),
+                web.post("/api/remote/profile", self.remote_profile),
+                web.post("/api/remote/revoke", self.remote_revoke),
+                web.post("/api/remote/end/{id}", self.remote_end),
                 web.get("/api/devices", self.devices),
                 web.get("/api/members", self.members),
                 web.get("/api/sessions", self.sessions),
@@ -85,7 +89,30 @@ class WebPanel:
         return web.FileResponse(Path(__file__).parent / "ui" / name)
 
     async def status(self, request):
-        return web.json_response(self.service.status())
+        return web.json_response(
+            {
+                **self.service.status(),
+                "remote": self.remote.status() if self.remote else {"enabled": False},
+            }
+        )
+
+    async def remote_profile(self, request):
+        if not self.remote:
+            raise ValueError("B 端接收未启用。")
+        data = await request.json()
+        return web.json_response(self.remote.profile(str(data["address"])))
+
+    async def remote_revoke(self, request):
+        if not self.remote or not self.remote.identity:
+            raise ValueError("B 端接收未启用。")
+        self.remote.identity.rotate()
+        return web.json_response({"ok": True})
+
+    async def remote_end(self, request):
+        if not self.remote:
+            raise ValueError("B 端接收未配置。")
+        self.remote.end_receiving(request.match_info["id"])
+        return web.json_response({"ok": True})
 
     async def devices(self, request):
         return web.json_response({"devices": await self.service.engine.devices()})
@@ -174,6 +201,12 @@ class WebPanel:
         return web.json_response({"ok": True})
 
     async def delete(self, request):
+        session_id = request.match_info["id"]
+        detail = self.service.store.detail(session_id)
+        if detail["status"] == "receiving":
+            raise ValueError("请先在 B 停止并完成同步，或点击结束 B 端接收。")
+        if self.remote:
+            self.remote.end_receiving(session_id)
         await self.service.delete(request.match_info["id"])
         return web.json_response({"ok": True})
 

@@ -9,7 +9,7 @@ if (fragment.has("token")) {
 }
 let selected = "", members = [], current = null, busy = false;
 const blobs = [];
-const stateLabels = {recording:"采集中", stopped:"采集已停止", imported:"已导入", interrupted:"采集中断", error:"需要处理", queued:"等待转写", processing:"正在转写", done:"转写完成", pending:"待审核", approved:"已认定", rejected:"已排除"};
+const stateLabels = {receiving:"B 端录音同步中", recording:"采集中", stopped:"采集已停止", imported:"已导入", interrupted:"采集中断", error:"需要处理", queued:"等待转写", processing:"正在转写", done:"转写完成", pending:"待审核", approved:"已认定", rejected:"已排除"};
 function node(tag, text, cls) { const e=document.createElement(tag); if(text !== undefined)e.textContent=text; if(cls)e.className=cls; return e; }
 function button(text, fn, cls="small secondary") { const e=node("button",text,cls); e.onclick=()=>action(fn,e); return e; }
 function tell(text) { $("notice").textContent=text; $("notice").hidden=!text; }
@@ -43,6 +43,10 @@ async function refresh() {
     const [status,listing,voices]=await Promise.all([api("status"),api("sessions"),api("voices")]);
     $("login").hidden=true;$("workspace").hidden=false;
     $("group-label").textContent="目标群 · "+(status.group_id||"请在插件中配置群号");
+    const remote=status.remote||{enabled:false};
+    $("remote-state").textContent=remote.enabled?"B 端接收已开启 · 端口 "+remote.port+(remote.last_upload?" · 最近收到录音 "+new Date(remote.last_upload*1000).toLocaleTimeString():" · 等待连接"):"请在插件配置中启用 B 端录音接收，并重启 AstrBot。";
+    $("pair-button").disabled=!remote.enabled;$("revoke-button").disabled=!remote.enabled;
+    if(!$("remote-address").value){const address=(remote.addresses||[]).find(a=>a.startsWith("100."));if(address)$("remote-address").value="https://"+address+":"+remote.port;}
     $("start-button").hidden=!!status.active_session;$("start-button").disabled=!status.capture_enabled;
     $("stop-button").hidden=!status.active_session;
     $("capture-state").textContent=status.active_session?"正在采集 · "+Math.floor((Date.now()/1000-status.capture_started)/60)+" 分钟":status.queued?"还有 "+status.queued+" 个分段待处理":"尚未采集";
@@ -70,15 +74,16 @@ async function refreshDetail() {
   $("empty").hidden=true;$("record").hidden=false;
   $("record-title").textContent=current.title;
   $("record-status").textContent=(stateLabels[current.status]||current.status)+(current.error?" · "+current.error:"");
+  $("end-remote-button").hidden=current.status!=="receiving";
   $("chunks").replaceChildren();
   for(const [index,chunk] of current.chunks.entries()){
-    const row=node("div",undefined,"chunk row");row.append(node("span","分段 "+(index+1)+" · "+(stateLabels[chunk.status]||chunk.status)+(chunk.error?" · "+chunk.error:"")));
+    const row=node("div",undefined,"chunk row");row.append(node("span","分段 "+(index+1)+(chunk.source?" · "+chunk.source:"")+" · "+(stateLabels[chunk.status]||chunk.status)+(chunk.error?" · "+chunk.error:"")));
     if(chunk.status==="error")row.append(button("重试",async()=>{await api("retry/"+chunk.id,"POST",{});await refreshDetail();}));$("chunks").append(row);
   }
   $("clusters").replaceChildren();
   const labels=new Map();
   for(const [index,group] of current.clusters.entries()){
-    const label="声音组 "+(index+1);labels.set(group.id,group.status==="approved"?group.nickname+"（"+group.qq+"）":label+"（身份未确认）");
+    const label="声音组 "+(index+1)+(group.source?" · "+group.source:"");labels.set(group.id,group.status==="approved"?group.nickname+"（"+group.qq+"）":label+"（身份未确认）");
     const card=node("div",undefined,"voice-card "+group.status);
     const heading=node("div",undefined,"row");heading.append(node("h3",label),node("span",stateLabels[group.status],"pill"));card.append(heading);
     const samples=node("div",undefined,"samples");
@@ -104,6 +109,8 @@ async function refreshDetail() {
   $("transcript").textContent=current.segments.map(s=>"["+s.start.toFixed(1)+"–"+s.end.toFixed(1)+"s] "+labels.get(s.cluster_id)+"："+s.text).join("\n\n");
 }
 $("login-button").onclick=()=>action(async()=>{token=$("token").value.trim();sessionStorage.setItem("voice-journal-token",token);await refresh();});
+$("pair-button").onclick=()=>action(async()=>{const data=await api("remote/profile","POST",{address:$("remote-address").value.trim()});const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));const link=node("a");link.href=url;link.download="A-连接.voicejournal";link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);tell("连接文件已导出。将它传给自己的 B 电脑，在采集器中导入。");},$("pair-button"));
+$("revoke-button").onclick=()=>action(async()=>{if(!confirm("旧连接文件将立即失效。B 需导入新文件才能继续同步；本地录音仍保留。"))return;await api("remote/revoke","POST",{});tell("旧连接已撤销，请重新导出连接文件。");},$("revoke-button"));
 $("devices-button").onclick=()=>action(loadDevices,$("devices-button"));
 $("members-button").onclick=()=>action(loadMembers,$("members-button"));
 $("refresh-button").onclick=()=>action(async()=>{await refresh();await refreshDetail();});
@@ -112,6 +119,7 @@ $("stop-button").onclick=()=>action(async()=>{await api("capture/stop","POST",{}
 $("import-button").onclick=()=>action(async()=>{const file=$("audio-file").files[0];if(!file)throw new Error("请选择音频文件。");if(file.size>256*1024*1024)throw new Error("文件最大 256 MB。");const body=new FormData();body.append("audio",file);selected=(await api("import","POST",body)).session_id;tell("音频已进入处理队列。");await refresh();await refreshDetail();},$("import-button"));
 $("summary-button").onclick=()=>action(async()=>{await api("summary/"+selected,"POST",{});tell("已开始生成复盘。");await refresh();});
 $("delete-button").onclick=()=>action(async()=>{if(!confirm("删除本次录音、转写和审核记录？来源于本次记录的声纹样本也会删除。"))return;await api("delete/"+selected,"POST",{});selected="";current=null;$("record").hidden=true;$("empty").hidden=false;await refresh();});
+$("end-remote-button").onclick=()=>action(async()=>{if(!confirm("结束 A 对这条录音的接收？这不会远程停止 B 的麦克风；未传完的录音将留在 B，不再自动传到 A。"))return;await api("remote/end/"+selected,"POST",{});await refreshDetail();await refresh();});
 $("export-button").onclick=()=>{const blob=new Blob([$("transcript").textContent+"\n\n复盘：\n"+$("summary").textContent],{type:"text/plain;charset=utf-8"});const url=URL.createObjectURL(blob);const link=node("a");link.href=url;link.download="语音手记-"+selected.slice(0,8)+".txt";link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 if(token)action(refresh);else $("login").hidden=false;
 setInterval(()=>{if(!token||$("workspace").hidden)return;action(async()=>{await refresh();const editing=["INPUT","SELECT"].includes(document.activeElement.tagName)||[...document.querySelectorAll("audio")].some(a=>!a.paused);if(!editing&&selected)await refreshDetail();});},8000);

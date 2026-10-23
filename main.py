@@ -5,6 +5,7 @@ from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star, StarTools
 
 from .engine import Engine
+from .remote import RemoteReceiver
 from .service import JournalService
 from .store import Store
 from .web import WebPanel
@@ -18,14 +19,19 @@ class VoiceJournal(Star):
         self.store = Store(self.directory)
         self.engine = Engine(config, self.directory)
         self.service = JournalService(config, self.store, self.engine, self.summarize, self.members)
-        self.panel = WebPanel(self.service, self.directory, int(config.get("web_port", 7844)))
+        self.remote = RemoteReceiver(self.service)
+        self.panel = WebPanel(
+            self.service, self.directory, int(config.get("web_port", 7844)), self.remote
+        )
 
     async def initialize(self) -> None:
         try:
-            await self.panel.start()
             await self.service.start()
+            await self.remote.start()
+            await self.panel.start()
         except BaseException:
             await self.panel.close()
+            await self.remote.close()
             await self.service.close()
             raise
         logger.info("Voice journal panel listening on loopback port %s", self.panel.port)
@@ -65,9 +71,10 @@ class VoiceJournal(Star):
             yield event.plain_result("此入口仅供配置的管理者私聊使用。")
             return
         yield event.plain_result(
-            f"群语音手记：http://127.0.0.1:{self.panel.port}/#token={self.panel.token}\n请在运行 AstrBot 的电脑上打开。先在 QQ 加入群语音，再点击开始采集。此链接包含管理口令，请勿转发。"
+            f"群语音手记：http://127.0.0.1:{self.panel.port}/#token={self.panel.token}\n请在运行 AstrBot 的 A 电脑上打开。可在此连接 B 端采集器或审核录音。此链接包含管理口令，请勿转发。"
         )
 
     async def terminate(self) -> None:
         await self.panel.close()
+        await self.remote.close()
         await self.service.close()

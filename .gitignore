@@ -3,6 +3,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .venv/
+.venv-client/
 runtime/
 data/
 *.wav
@@ -28,4 +29,10 @@ models/
 *.pth
 *.onnx
 *.bin
+*.pem
+*.key
+*.voicejournal
+upload-token.txt
+build/
+*.spec
 dist/

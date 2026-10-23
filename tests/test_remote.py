@@ -20,7 +20,7 @@ def wav_bytes(seconds=1):
     return result.getvalue()
 
 
-async def receiver_at(root):
+async def receiver_at(root, address=None):
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
@@ -28,7 +28,7 @@ async def receiver_at(root):
     service = JournalService(
         {
             "remote_enabled": True,
-            "remote_bind": "127.0.0.1",
+            "remote_bind": address(port) if address else "127.0.0.1",
             "remote_port": port,
             "group_id": "100001",
             "auto_summary": False,
@@ -42,6 +42,44 @@ async def receiver_at(root):
     receiver = RemoteReceiver(service)
     await receiver.start()
     return service, receiver
+
+
+@pytest.mark.parametrize(
+    "address",
+    [
+        lambda port: f" https://127.0.0.1:{port} ",
+        lambda port: f"127.0.0.1:{port}",
+        lambda port: " 127.0.0.1 ",
+    ],
+)
+def test_listener_accepts_pasted_url_or_ip_without_dns(tmp_path, address):
+    async def run():
+        service, receiver = await receiver_at(tmp_path, address)
+        try:
+            connection = Connection(receiver.profile("127.0.0.1"))
+            assert (await asyncio.to_thread(connection.request, "GET", "/v1/info"))["version"] == 1
+        finally:
+            await receiver.close()
+            await service.close()
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize(
+    "address",
+    [
+        "https://127.0.0.1:1234/path",
+        "https://127.0.0.1:1234",
+        "https://127.0.0.1:1234?token=example",
+        "not-an-ip",
+    ],
+)
+def test_listener_rejects_invalid_address_with_config_guidance(tmp_path, address):
+    async def run():
+        with pytest.raises(ValueError, match="监听地址"):
+            await receiver_at(tmp_path, lambda port: address)
+
+    asyncio.run(run())
 
 
 def test_pinned_upload_two_tracks_retry_review_and_restart(tmp_path):

@@ -1,7 +1,7 @@
 name: astrbot_plugin_voice_journal
 display_name: 群语音手记
 desc: 手动采集群语音、离线转写、试听审核说话人、独立声纹库和通话复盘。
-version: v0.2.0
+version: v0.2.1
 author: Quin520
 repo: https://github.com/Quin520/AstrBot-QQ-Voice-Journal
 astrbot_version: ">=4.29.1,<5"

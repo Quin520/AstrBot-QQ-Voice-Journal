@@ -38,6 +38,7 @@ class RemoteReceiver:
         self.service, self.runner, self.identity = service, None, None
         self.receipts = RemoteStore(service.store)
         self.port = int(service.config.get("remote_port", 7845))
+        self.bind = ""
         self.lock = asyncio.Lock()
         self.last_upload = 0.0
         self.uploads = set()
@@ -109,6 +110,7 @@ class RemoteReceiver:
         return {
             "enabled": bool(self.runner),
             "port": self.port,
+            "bind": self.bind,
             "addresses": addresses,
             "last_upload": self.last_upload,
             **self.limits(),
@@ -239,13 +241,40 @@ class RemoteReceiver:
     async def start(self) -> None:
         if not self.service.config.get("remote_enabled", False):
             return
+        # A copied connection URL is not a hostname. Normalize it before passing
+        # a numeric local address to asyncio's listening socket.
+        address = str(self.service.config.get("remote_bind") or "0.0.0.0").strip()
+        try:
+            if not 1 <= self.port <= 65535:
+                raise ValueError("Invalid listening port")
+            try:
+                self.bind = str(ipaddress.ip_address(address))
+            except ValueError:
+                url = urlsplit(address if "://" in address else "//" + address)
+                if (
+                    url.scheme not in {"", "https"}
+                    or url.username
+                    or url.password
+                    or url.path not in {"", "/"}
+                    or url.query
+                    or url.fragment
+                    or (url.port is not None and url.port != self.port)
+                ):
+                    raise ValueError("Invalid listening URL")
+                host = "127.0.0.1" if url.hostname == "localhost" else url.hostname
+                self.bind = str(ipaddress.ip_address(host or ""))
+        except (ValueError, TypeError) as error:
+            raise ValueError(
+                "B 端接收监听地址无效：请填本机 IP（例如 0.0.0.0），或包含本机 IP 的 HTTPS 网址；"
+                "网址中的端口必须与“B 端加密上传端口”一致，不能包含网页路径或查询参数。"
+            ) from error
         self.identity = RemoteIdentity(self.service.store.directory)
         self.runner = web.AppRunner(self.app, access_log=None, shutdown_timeout=10)
         await self.runner.setup()
         try:
             await web.TCPSite(
                 self.runner,
-                str(self.service.config.get("remote_bind", "0.0.0.0")),
+                self.bind,
                 self.port,
                 ssl_context=self.identity.context,
             ).start()
